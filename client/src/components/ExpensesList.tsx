@@ -30,27 +30,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
-import { trpc } from "@/lib/trpc";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  deleteExpense,
+  listExpenses,
+  updateExpense,
+  bulkUpdateExpensesPaid,
+  getCategories,
+  type Category,
+  type ExpenseItem,
+} from "@/lib/api";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { ExpenseForm } from "./ExpenseForm";
 import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, Receipt } from "lucide-react";
-
-interface Category {
-  id: number;
-  name: string;
-  color: string | null;
-}
-
-type ExpenseItem = {
-  id: number;
-  categoryId: number;
-  type: "fixed" | "variable";
-  description: string;
-  amount: string;
-  createdAt: string;
-  paid?: boolean;
-};
 
 function formatCurrency(value: string | number): string {
   const num = typeof value === "string" ? parseFloat(value) : value;
@@ -85,41 +78,59 @@ export function ExpensesList({
   const [currentPage, setCurrentPage] = useState(1);
   const deferredSearchTerm = useDeferredValue(searchTerm);
 
-  const utils = trpc.useUtils();
+  const queryClient = useQueryClient();
   const shouldFetch = !expensesProp || !categoriesProp;
-  const { data: expensesData, isLoading: isExpensesLoading } =
-    trpc.expenses.list.useQuery(
-      { year, month },
-      { enabled: shouldFetch }
-    );
-  const { data: categoriesData, isLoading: isCategoriesLoading } =
-    trpc.categories.list.useQuery(undefined, { enabled: shouldFetch });
+  const { data: expensesData, isLoading: isExpensesLoading } = useQuery({
+    queryKey: ["expenses", year, month],
+    queryFn: () => listExpenses({ year, month }),
+    enabled: shouldFetch,
+  });
+  const { data: categoriesData, isLoading: isCategoriesLoading } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => getCategories(),
+    enabled: shouldFetch,
+  });
 
   const expenses = expensesProp ?? expensesData;
   const categories = categoriesProp ?? categoriesData;
   const isLoading = isLoadingProp ?? (isExpensesLoading || isCategoriesLoading);
 
-  const deleteMutation = trpc.expenses.delete.useMutation({
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteExpense(id),
     onSuccess: () => {
       toast.success("Despesa excluída com sucesso!");
-      utils.expenses.list.invalidate();
-      utils.summary.get.invalidate();
-      utils.dashboard.get.invalidate();
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["summary"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setDeleteId(null);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast.error("Erro ao excluir despesa: " + error.message);
     },
   });
 
-  const updateMutation = trpc.expenses.update.useMutation({
+  const updateMutation = useMutation({
+    mutationFn: (payload: { id: number; paid?: boolean }) => updateExpense(payload),
     onSuccess: () => {
-      utils.expenses.list.invalidate();
-      utils.summary.get.invalidate();
-      utils.dashboard.get.invalidate();
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["summary"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast.error("Erro ao atualizar despesa: " + error.message);
+    },
+  });
+
+  const bulkPaidMutation = useMutation({
+    mutationFn: (payload: { ids: number[]; paid: boolean }) =>
+      bulkUpdateExpensesPaid(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["summary"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (error: any) => {
+      toast.error("Erro ao atualizar despesas: " + error.message);
     },
   });
 
@@ -194,18 +205,15 @@ export function ExpensesList({
     );
 
     if (targets.length === 0) return;
-
-    targets.forEach((expense: ExpenseItem) => {
-      updateMutation.mutate({
-        id: expense.id,
-        paid: checked,
-      });
+    bulkPaidMutation.mutate({
+      ids: targets.map((expense: ExpenseItem) => expense.id),
+      paid: checked,
     });
   };
 
   const confirmDelete = () => {
     if (deleteId) {
-      deleteMutation.mutate({ id: deleteId });
+      deleteMutation.mutate(deleteId);
     }
   };
 
@@ -286,7 +294,11 @@ export function ExpensesList({
                           onCheckedChange={(checked) =>
                             handleBulkPaidChange(Boolean(checked))
                           }
-                          disabled={isLoading || bulkPaidStats.total === 0}
+                          disabled={
+                            isLoading ||
+                            bulkPaidStats.total === 0 ||
+                            bulkPaidMutation.isPending
+                          }
                         />
                         <span className="text-xs text-muted-foreground">Pago</span>
                       </div>

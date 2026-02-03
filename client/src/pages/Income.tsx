@@ -3,7 +3,8 @@ import { PeriodSelector } from "@/components/PeriodSelector";
 import { IncomeForm } from "@/components/IncomeForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { trpc } from "@/lib/trpc";
+import { useQuery, useQueries } from "@tanstack/react-query";
+import { getIncome } from "@/lib/api";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { TrendingUp, Calendar } from "lucide-react";
 
@@ -23,9 +24,14 @@ export default function Income() {
   const { year, monthName } = usePeriod();
 
   // Fetch income for all months of the current year
-  const monthQueries = Array.from({ length: 12 }, (_, i) => i + 1).map((m) => ({
-    month: m,
-    query: trpc.income.get.useQuery({ year, month: m }),
+  const monthQueries = useQueries({
+    queries: Array.from({ length: 12 }, (_, i) => i + 1).map((m) => ({
+      queryKey: ["income", year, m],
+      queryFn: () => getIncome({ year, month: m }),
+    })),
+  }).map((query, index) => ({
+    month: index + 1,
+    query,
   }));
 
   const yearlyData = monthQueries.map(({ month, query }) => ({

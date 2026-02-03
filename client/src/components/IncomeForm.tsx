@@ -11,7 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { trpc } from "@/lib/trpc";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getIncome, upsertIncome } from "@/lib/api";
 import { formatCurrencyFromDigits, formatCurrencyInput, parseCurrencyInput } from "@/lib/utils";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { toast } from "sonner";
@@ -35,10 +36,15 @@ export function IncomeForm() {
   const [endYear, setEndYear] = useState(year);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
-  const utils = trpc.useUtils();
-  const { data: income, isLoading } = trpc.income.get.useQuery({ year, month });
+  const queryClient = useQueryClient();
+  const { data: income, isLoading } = useQuery({
+    queryKey: ["income", year, month],
+    queryFn: () => getIncome({ year, month }),
+  });
 
-  const upsertMutation = trpc.income.upsert.useMutation();
+  const upsertMutation = useMutation({
+    mutationFn: upsertIncome,
+  });
 
   useEffect(() => {
     if (income) {
@@ -107,9 +113,9 @@ export function IncomeForm() {
           )
         );
         toast.success("Renda atualizada com sucesso!");
-        utils.income.get.invalidate();
-        utils.summary.get.invalidate();
-        utils.dashboard.get.invalidate();
+        queryClient.invalidateQueries({ queryKey: ["income"] });
+        queryClient.invalidateQueries({ queryKey: ["summary"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
         setIsEditing(false);
       } catch (error: any) {
         toast.error("Erro ao atualizar renda: " + error.message);

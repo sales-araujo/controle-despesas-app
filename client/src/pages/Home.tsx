@@ -3,12 +3,16 @@ import { PeriodSelector } from "@/components/PeriodSelector";
 import { SummaryCards } from "@/components/SummaryCards";
 import { ExpensesList } from "@/components/ExpensesList";
 import { usePeriod } from "@/contexts/PeriodContext";
-import { trpc } from "@/lib/trpc";
+import { useQuery } from "@tanstack/react-query";
+import { getDashboard } from "@/lib/api";
 
 export default function Home() {
   const { year, month, monthName } = usePeriod();
   
-  const { data, isLoading } = trpc.dashboard.get.useQuery({ year, month });
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard", year, month],
+    queryFn: () => getDashboard({ year, month }),
+  });
   const summary = data?.summary;
   const expenses = (data?.expenses ?? []) as Array<{ amount: string; paid?: boolean }>;
   const paidExpenses = expenses.filter((e: { paid?: boolean }) => e.paid);

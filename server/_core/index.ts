@@ -6,6 +6,13 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import healthHandler from "../../api/health";
+import categoriesHandler from "../../api/categories";
+import expensesHandler from "../../api/expenses";
+import expensesBulkHandler from "../../api/expenses-bulk";
+import incomeHandler from "../../api/income";
+import summaryHandler from "../../api/summary";
+import dashboardHandler from "../../api/dashboard";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -32,6 +39,14 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // REST API
+  app.all("/api/health", healthHandler as any);
+  app.all("/api/categories", categoriesHandler as any);
+  app.all("/api/expenses", expensesHandler as any);
+  app.all("/api/expenses-bulk", expensesBulkHandler as any);
+  app.all("/api/income", incomeHandler as any);
+  app.all("/api/summary", summaryHandler as any);
+  app.all("/api/dashboard", dashboardHandler as any);
   // tRPC API
   app.use(
     "/api/trpc",

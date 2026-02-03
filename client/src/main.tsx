@@ -1,8 +1,5 @@
-import { trpc } from "@/lib/trpc";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchLink } from "@trpc/client";
 import { createRoot } from "react-dom/client";
-import superjson from "superjson";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import "./index.css";
@@ -32,31 +29,12 @@ queryClient.getMutationCache().subscribe((event: any) => {
   }
 });
 
-const apiUrl = import.meta.env.VITE_API_URL || "/api/trpc";
-
-const trpcClient = trpc.createClient({
-  links: [
-    httpBatchLink({
-      url: apiUrl,
-      transformer: superjson,
-      fetch(input: RequestInfo | URL, init?: RequestInit) {
-        return globalThis.fetch(input, {
-          ...(init ?? {}),
-          credentials: "include",
-        });
-      },
-    }),
-  ],
-});
-
 if (import.meta.env.PROD) {
   registerSW({ immediate: true });
 }
 
 createRoot(document.getElementById("root")!).render(
-  <trpc.Provider client={trpcClient} queryClient={queryClient}>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </trpc.Provider>
+  <QueryClientProvider client={queryClient}>
+    <App />
+  </QueryClientProvider>
 );

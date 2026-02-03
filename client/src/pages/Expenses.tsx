@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { Receipt, TrendingDown, CheckCircle, Clock } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import { useQuery } from "@tanstack/react-query";
+import { getDashboard } from "@/lib/api";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -18,7 +19,10 @@ function formatCurrency(value: number): string {
 export default function Expenses() {
   const { year, month, monthName } = usePeriod();
   
-  const { data, isLoading } = trpc.dashboard.get.useQuery({ year, month });
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard", year, month],
+    queryFn: () => getDashboard({ year, month }),
+  });
   const summary = data?.summary;
   const expenses = (data?.expenses ?? []) as Array<{ amount: string; paid?: boolean }>;
   const paidExpenses = expenses.filter((e: { paid?: boolean }) => e.paid);

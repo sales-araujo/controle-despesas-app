@@ -4,7 +4,8 @@ import { PeriodSelector } from "@/components/PeriodSelector";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { trpc } from "@/lib/trpc";
+import { useQuery } from "@tanstack/react-query";
+import { getCategories, listExpenses } from "@/lib/api";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
@@ -218,8 +219,14 @@ export default function Reports() {
   const { year, month, monthName } = usePeriod();
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const { data: expenses } = trpc.expenses.list.useQuery({ year, month });
-  const { data: categories } = trpc.categories.list.useQuery();
+  const { data: expenses } = useQuery({
+    queryKey: ["expenses", year, month],
+    queryFn: () => listExpenses({ year, month }),
+  });
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => getCategories(),
+  });
 
   // Find all "Mãe" categories (handle duplicates/accents)
   const maeCategoryIds = new Set(

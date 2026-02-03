@@ -15,7 +15,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { trpc } from "@/lib/trpc";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createCategory,
+  createExpense,
+  deleteExpense,
+  getCategories,
+  listExpensesByGroup,
+  updateExpense,
+} from "@/lib/api";
 import { formatCurrencyFromDigits, formatCurrencyInput, parseCurrencyInput } from "@/lib/utils";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { toast } from "sonner";
@@ -54,8 +62,11 @@ export function ExpenseForm({ open, onOpenChange, expense, onSuccess }: ExpenseF
   const [endYear, setEndYear] = useState(year);
   const [isBulkCreating, setIsBulkCreating] = useState(false);
 
-  const utils = trpc.useUtils();
-  const { data: categories } = trpc.categories.list.useQuery();
+  const queryClient = useQueryClient();
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => getCategories(),
+  });
   const uniqueCategories = useMemo(() => {
     const seen = new Set<string>();
     return (categories ?? []).filter((cat: CategoryOption) => {
@@ -65,20 +76,28 @@ export function ExpenseForm({ open, onOpenChange, expense, onSuccess }: ExpenseF
       return true;
     });
   }, [categories]);
-  const deleteMutation = trpc.expenses.delete.useMutation();
-  const { data: groupedExpenses } = trpc.expenses.byGroup.useQuery(
-    { groupId: expense?.groupId ?? "" },
-    { enabled: Boolean(expense?.groupId) }
-  );
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteExpense(id),
+  });
+  const { data: groupedExpenses } = useQuery({
+    queryKey: ["expensesByGroup", expense?.groupId],
+    queryFn: () => listExpensesByGroup(expense?.groupId ?? ""),
+    enabled: Boolean(expense?.groupId),
+  });
 
-  const createMutation = trpc.expenses.create.useMutation();
-  const createCategoryMutation = trpc.categories.create.useMutation();
+  const createMutation = useMutation({
+    mutationFn: createExpense,
+  });
+  const createCategoryMutation = useMutation({
+    mutationFn: createCategory,
+  });
 
-  const updateMutation = trpc.expenses.update.useMutation({
+  const updateMutation = useMutation({
+    mutationFn: updateExpense,
     onSuccess: () => {
       toast.success("Despesa atualizada com sucesso!");
-      utils.expenses.list.invalidate();
-      utils.summary.get.invalidate();
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["summary"] });
       onOpenChange(false);
       resetForm();
       onSuccess?.();
@@ -136,10 +155,10 @@ export function ExpenseForm({ open, onOpenChange, expense, onSuccess }: ExpenseF
 
   const handleCreateSuccess = () => {
     toast.success("Despesa adicionada com sucesso!");
-    utils.expenses.list.invalidate();
-    utils.summary.get.invalidate();
-    utils.categories.list.invalidate();
-    utils.dashboard.get.invalidate();
+    queryClient.invalidateQueries({ queryKey: ["expenses"] });
+    queryClient.invalidateQueries({ queryKey: ["summary"] });
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     onOpenChange(false);
     resetForm();
     onSuccess?.();
@@ -203,7 +222,7 @@ export function ExpenseForm({ open, onOpenChange, expense, onSuccess }: ExpenseF
                 (e) => e.id !== expense.id
               );
               await Promise.all(
-                others.map((e) => deleteMutation.mutateAsync({ id: e.id }))
+                others.map((e) => deleteMutation.mutateAsync(e.id))
               );
             }
 
@@ -309,7 +328,7 @@ export function ExpenseForm({ open, onOpenChange, expense, onSuccess }: ExpenseF
           existingWithCurrent.forEach((e) => {
             const key = `${e.year}-${e.month}`;
             if (!rangeKeys.has(key)) {
-              tasks.push(deleteMutation.mutateAsync({ id: e.id }));
+              tasks.push(deleteMutation.mutateAsync(e.id));
             }
           });
 

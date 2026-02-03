@@ -2,7 +2,8 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { PeriodSelector } from "@/components/PeriodSelector";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { trpc } from "@/lib/trpc";
+import { useQuery, useQueries } from "@tanstack/react-query";
+import { getSummary } from "@/lib/api";
 import { usePeriod } from "@/contexts/PeriodContext";
 import {
   PieChart,
@@ -69,12 +70,20 @@ const BarTooltip = ({ active, payload, label }: any) => {
 export default function Analysis() {
   const { year, month, monthName } = usePeriod();
   
-  const { data: summary, isLoading } = trpc.summary.get.useQuery({ year, month });
+  const { data: summary, isLoading } = useQuery({
+    queryKey: ["summary", year, month],
+    queryFn: () => getSummary({ year, month }),
+  });
 
   // Fetch data for all months of the year for comparison
-  const monthQueries = Array.from({ length: 12 }, (_, i) => i + 1).map((m) => ({
-    month: m,
-    query: trpc.summary.get.useQuery({ year, month: m }),
+  const monthQueries = useQueries({
+    queries: Array.from({ length: 12 }, (_, i) => i + 1).map((m) => ({
+      queryKey: ["summary", year, m],
+      queryFn: () => getSummary({ year, month: m }),
+    })),
+  }).map((query, index) => ({
+    month: index + 1,
+    query,
   }));
 
   const yearlyData = monthQueries.map(({ month: m, query }) => ({

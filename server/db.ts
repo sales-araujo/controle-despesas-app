@@ -244,6 +244,24 @@ export async function updateExpense(
   }
 }
 
+export async function updateExpensesPaid(
+  userId: number,
+  ids: number[],
+  paid: boolean
+) {
+  if (ids.length === 0) return;
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("expenses")
+    .update({ paid })
+    .in("id", ids)
+    .eq("userId", userId);
+
+  if (error) {
+    throw new Error(toErrorMessage("Failed to update expenses", error));
+  }
+}
+
 export async function deleteExpense(id: number, userId: number) {
   const supabase = getSupabaseClient();
   const { error } = await supabase
