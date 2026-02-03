@@ -5,7 +5,7 @@ import { createContext } from "../../server/_core/context";
 const handler = createHTTPHandler({
   router: appRouter,
   createContext,
-  basePath: "/api/trpc",
+  basePath: "/api/trpc/",
 });
 
 export default handler;
