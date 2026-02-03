@@ -1,4 +1,4 @@
-import { createHTTPHandler } from "@trpc/server/adapters/node-http";
+import { createHTTPHandler } from "@trpc/server/adapters/standalone";
 import { appRouter } from "../../server/routers";
 import { createContext } from "../../server/_core/context";
 
