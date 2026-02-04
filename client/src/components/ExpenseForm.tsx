@@ -128,7 +128,12 @@ export function ExpenseForm({ open, onOpenChange, expense, onSuccess }: ExpenseF
 
   useEffect(() => {
     if (!expense?.groupId || !groupedExpenses || groupedExpenses.length === 0) return;
-    const sorted = [...groupedExpenses].sort((a, b) => {
+    const normalized = (groupedExpenses as GroupedExpense[]).filter(
+      (item): item is GroupedExpense =>
+        item.year !== undefined && item.month !== undefined
+    );
+    if (normalized.length === 0) return;
+    const sorted = [...normalized].sort((a, b) => {
       if (a.year !== b.year) return a.year - b.year;
       return a.month - b.month;
     });
